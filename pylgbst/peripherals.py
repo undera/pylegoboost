@@ -101,7 +101,7 @@ class Peripheral(object):
     def _send_output(self, msg):
         assert isinstance(msg, MsgPortOutput)
         msg.is_buffered = self.is_buffered  # TODO: support buffering
-        self.hub.send(msg)
+        return self.hub.send(msg)
 
     def get_sensor_data(self, mode):
         self.set_port_mode(mode)
@@ -275,12 +275,15 @@ class Motor(Peripheral):
         msg = MsgPortOutput(self.port, MsgPortOutput.WRITE_DIRECT_MODE_DATA, params)
         self._send_output(msg)
 
+    def _is_successful(self, msg):
+        return not msg.is_discarded()
+
     def _send_cmd(self, subcmd, params):
         if self.virtual_ports:
             subcmd += 1  # de-facto rule
 
         msg = MsgPortOutput(self.port, subcmd, params)
-        self._send_output(msg)
+        return self._send_output(msg)
 
     def start_power(self, power_primary=1.0, power_secondary=None):
         """
@@ -299,10 +302,12 @@ class Motor(Peripheral):
         if self.virtual_ports:
             params += pack("<b", self._speed_abs(power_secondary))
 
-        self._send_cmd(cmd, params)
+        resp = self._send_cmd(cmd, params)
+
+        return self._is_successful(resp)
 
     def stop(self):
-        self.timed(0)
+        return self.timed(0)
 
     def set_acc_profile(self, seconds, profile_no=0x00):
         """
@@ -312,7 +317,9 @@ class Motor(Peripheral):
         params += pack("<H", int(seconds * 1000))
         params += pack("<B", profile_no)
 
-        self._send_cmd(self.SUBCMD_SET_ACC_TIME, params)
+        resp = self._send_cmd(self.SUBCMD_SET_ACC_TIME, params)
+
+        return self._is_successful(resp)
 
     def set_dec_profile(self, seconds, profile_no=0x00):
         """
@@ -322,7 +329,9 @@ class Motor(Peripheral):
         params += pack("<H", int(seconds * 1000))
         params += pack("<B", profile_no)
 
-        self._send_cmd(self.SUBCMD_SET_DEC_TIME, params)
+        resp = self._send_cmd(self.SUBCMD_SET_DEC_TIME, params)
+
+        return self._is_successful(resp)
 
     def start_speed(self, speed_primary=1.0, speed_secondary=None, max_power=1.0, use_profile=0b11):
         """
@@ -339,7 +348,9 @@ class Motor(Peripheral):
         params += pack("<B", int(100 * max_power))
         params += pack("<B", use_profile)
 
-        self._send_cmd(self.SUBCMD_START_SPEED, params)
+        resp = self._send_cmd(self.SUBCMD_START_SPEED, params)
+
+        return self._is_successful(resp)
 
     def timed(self, seconds, speed_primary=1.0, speed_secondary=None, max_power=1.0, end_state=END_STATE_BRAKE,
               use_profile=0b11):
@@ -359,7 +370,9 @@ class Motor(Peripheral):
         params += pack("<B", end_state)
         params += pack("<B", use_profile)
 
-        self._send_cmd(self.SUBCMD_START_SPEED_FOR_TIME, params)
+        resp = self._send_cmd(self.SUBCMD_START_SPEED_FOR_TIME, params)
+
+        return self._is_successful(resp)
 
 
 class EncodedMotor(Motor):
@@ -400,7 +413,9 @@ class EncodedMotor(Motor):
         params += pack("<B", end_state)
         params += pack("<B", use_profile)
 
-        self._send_cmd(self.SUBCMD_START_SPEED_FOR_DEGREES, params)
+        resp = self._send_cmd(self.SUBCMD_START_SPEED_FOR_DEGREES, params)
+
+        return self._is_successful(resp)
 
     def goto_position(self, degrees_primary, degrees_secondary=None, speed=1.0, max_power=1.0,
                       end_state=Motor.END_STATE_BRAKE, use_profile=0b11):
@@ -421,7 +436,9 @@ class EncodedMotor(Motor):
         params += pack("<B", end_state)
         params += pack("<B", use_profile)
 
-        self._send_cmd(self.SUBCMD_GOTO_ABSOLUTE_POSITION, params)
+        resp = self._send_cmd(self.SUBCMD_GOTO_ABSOLUTE_POSITION, params)
+
+        return self._is_successful(resp)
 
     def _decode_port_data(self, msg):
         data = msg.payload

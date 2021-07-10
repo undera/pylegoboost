@@ -742,7 +742,7 @@ class MsgPortOutput(DownstreamMsg):
 
     def is_reply(self, msg):
         return isinstance(msg, MsgPortOutputFeedback) and msg.port == self.port \
-               and (msg.is_completed() or self.is_buffered)
+            and not (msg.is_in_progress() or msg.is_busy())
 
 
 class MsgPortOutputFeedback(UpstreamMsg):
@@ -773,6 +773,9 @@ class MsgPortOutputFeedback(UpstreamMsg):
 
     def is_idle(self):
         return self.status & 0b1000
+
+    def is_busy(self):
+        return self.status & 0b10000
 
 
 UPSTREAM_MSGS = (
